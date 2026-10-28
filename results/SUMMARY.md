@@ -17,3 +17,22 @@ Il s'agit d'évaluations exploratoires sur la période de développement, avant 
 
 - `gold_f2f` : 4 évaluations CFD (XAUUSD et XAGUSD, avec et sans meta-labeling), refaites ensuite avec l'exécution corrigée ;
 - `tsmom_dl` : baselines TSMOM, MACD et long-only, ainsi que leurs variantes de rebalancement et de bande (le détail figure dans `docs/GUIDE.md`) ; 1 fold DMN de test.
+
+## Baselines corrigées — développement 2010-01-01 → 2021-12-31
+
+Profil `estimates` (résultats provisoires). Moteur prop event-driven, capital de 100 000 USD fixe, exécution à la clôture t+1 sauf dans la colonne « open t+1 » (avec repli sur la clôture t+1 pour les opens figés). Les TSMOM sont rebalancées chaque semaine, avec une bande de 0,02 et une volatilité cible du portefeuille de 8 %. F2F est en mode CFD (volatilité cible de 10 %, paramètres par défaut). Le filtre de régime est en mode continu, en walk-forward avec 8 ans d'entraînement en expanding et 12 mois de test. Le challenge est simulé avec le preset FTMO 2-Step Swing : un départ par mois sur compte neuf, chaque phase plafonnée à 126 sessions. Ces 24 évaluations (12 variantes × 2 modes d'exécution) sont exploratoires et comptées dans le nombre d'essais du DSR.
+
+| Stratégie | Régime | Sharpe brut | Sharpe net (clôture t+1) | Sharpe net (open t+1) | Turnover/an | Max DD | Pire jour (clôture) | Pire jour (intraday estimé) | Passage complet à 126 sessions | Phase 1 à 126 | Échecs | Timeouts | Départs | Coûts kUSD spread/comm./swap |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TSMOM 1/3/12 | off | 0.07 | -0.64 | -0.58 | 39.6 | -72.6% | -4.20% | -6.40% | 1% | 4% | 30% | 69% | 138 | 18.1 / 0.7 / 56.6 |
+| TSMOM 1/3/12 | on | 0.20 | -0.53 | -0.47 | 32.0 | -49.6% | -4.18% | -5.15% | 1% | 4% | 15% | 84% | 138 | 14.2 / 0.6 / 47.1 |
+| TSMOM 12m | off | 0.34 | -0.33 | -0.34 | 20.8 | -55.4% | -4.10% | -6.65% | 1% | 9% | 35% | 64% | 139 | 8.7 / 0.4 / 64.1 |
+| TSMOM 12m | on | 0.48 | -0.21 | -0.20 | 17.6 | -32.0% | -4.09% | -5.23% | 3% | 7% | 16% | 81% | 139 | 7.4 / 0.3 / 52.8 |
+| MACD (Baz) | off | 0.08 | -0.53 | -0.46 | 19.1 | -56.6% | -3.78% | -6.68% | 1% | 6% | 25% | 73% | 139 | 8.3 / 0.3 / 54.7 |
+| MACD (Baz) | on | 0.32 | -0.32 | -0.27 | 16.0 | -31.7% | -3.76% | -4.80% | 2% | 5% | 9% | 88% | 138 | 6.9 / 0.3 / 45.8 |
+| Long-only | off | 0.44 | -0.11 | -0.09 | 7.6 | -49.6% | -5.15% | -8.16% | 1% | 7% | 43% | 55% | 139 | 1.8 / 0.1 / 60.2 |
+| Long-only | on | 0.35 | -0.24 | -0.23 | 7.5 | -38.8% | -3.67% | -4.69% | 1% | 4% | 32% | 68% | 139 | 2.2 / 0.1 / 49.1 |
+| F2F CFD XAUUSD | off | 0.49 | 0.30 | 0.25 | 23.9 | -32.1% | -3.22% | -4.90% | 3% | 12% | 1% | 96% | 138 | 7.6 / 0.5 / 8.1 |
+| F2F CFD XAUUSD | on | 0.66 | 0.48 | 0.51 | 19.0 | -20.8% | -2.49% | -3.30% | 1% | 7% | 0% | 99% | 138 | 6.2 / 0.4 / 6.4 |
+| F2F CFD XAGUSD | off | 0.40 | -0.20 | -0.00 | 13.6 | -42.6% | -3.89% | -3.89% | 5% | 15% | 13% | 82% | 138 | 48.1 / 0.6 / 3.9 |
+| F2F CFD XAGUSD | on | 0.41 | -0.24 | 0.02 | 9.3 | -30.0% | -3.43% | -3.43% | 1% | 1% | 1% | 98% | 138 | 34.7 / 0.4 / 2.5 |

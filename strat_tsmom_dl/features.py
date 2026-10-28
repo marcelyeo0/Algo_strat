@@ -16,6 +16,7 @@ import pandas as pd
 
 ANNUAL = 252
 WEEK = 5
+EXECUTION_LAG = 1    # sessions between the signal close and the execution (next close)
 
 STATES = ("bull", "correction", "bear", "rebound")
 # Nine MTDP classes: ordinary point + the eight transitions where only one signal flips
@@ -116,6 +117,8 @@ def asset_features(bars: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     out = pd.concat(feats, axis=1)
     out["vol"] = vol
     out["ret"] = ret
-    out["next_ret"] = ret.shift(-1)       # target only, never an input
+    # Training target only, never an input: a position decided at the close of t is executed at
+    # the close of t+1 at the earliest, so it earns the return of t+2 (no signal-close execution).
+    out["next_ret"] = ret.shift(-EXECUTION_LAG - 1)
     out["trend_state"] = states
     return out

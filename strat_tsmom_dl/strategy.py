@@ -16,7 +16,7 @@ from common.costs.model import CostModel
 from common.tuning.walkforward import Fold
 from strat_tsmom_dl.baselines import baseline_positions
 from strat_tsmom_dl.dmn import build_sequences, predict_positions, train_dmn
-from strat_tsmom_dl.features import ANNUAL, asset_features
+from strat_tsmom_dl.features import ANNUAL, EXECUTION_LAG, asset_features
 from strat_tsmom_dl.mtdp import mtdp_fold_scores
 
 
@@ -64,7 +64,9 @@ def dmn_fold(panel: dict[str, pd.DataFrame], cfg: dict[str, Any], fold: Fold, co
     def window(lo, hi):
         out = {}
         for s, f in frames.items():
-            w = f.loc[lo:hi].iloc[:-1] if hi == fold.train_end else f.loc[lo:hi]   # last train target is a test day
+            w = f.loc[lo:hi]
+            if hi == fold.train_end:   # the last targets of the train window fall in the test window
+                w = w.iloc[:-(EXECUTION_LAG + 1)]
             w = w.dropna(subset=["next_ret"])
             if len(w) >= length:
                 out[s] = w

@@ -1,7 +1,9 @@
 """Deep Momentum Network: LSTM trained directly on the (negative) Sharpe ratio.
 
 Following Lim, Zohren & Roberts (2019): the network outputs a position X_t in (-1, 1) for each
-asset and date, the strategy return is X_t * sigma_target / sigma_t * r_{t+1}, and the loss is
+asset and date, the strategy return is X_t * sigma_target / sigma_t * r_{t+2} (Lim et al. use
+r_{t+1}, i.e. execution at the signal close; here the earliest execution is the close of t+1),
+and the loss is
 the negative annualised Sharpe ratio of these returns over the batch (pooled over assets and
 time steps). A turnover penalty subtracts the per-asset cost (bps from the cost profile) times
 the change in the volatility-scaled position, so that trading costs are part of the objective.

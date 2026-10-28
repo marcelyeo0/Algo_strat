@@ -140,3 +140,11 @@ def test_mtdp_train_scores_are_out_of_fold():
     assert np.allclose(s.sum(axis=1), 1.0)
     # Test-window scores do not change when data after train_end is perturbed in the labels' future.
     assert s.index.max() > train_end
+
+
+def test_dmn_target_is_after_the_execution_close():
+    cfg = load_yaml("strategies/tsmom_dl.yaml")
+    bars = synthetic_bars()
+    f = asset_features(bars, cfg)
+    # Position decided at the close of t, executed at the close of t+1, earns r_{t+2}.
+    assert f["next_ret"].iloc[10] == pytest.approx(f["ret"].iloc[12])

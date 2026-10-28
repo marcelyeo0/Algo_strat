@@ -84,47 +84,58 @@ def run_engine(
     fill_field = {s: "close" if execution == "next_close" or stale_open_share(frames[s]) > max_stale_open else "open"
                   for s in symbols}
 
+    # Pre-aligned numpy arrays (the per-session loop only touches plain floats).
+    n = len(calendar)
+    cols = ("open", "high", "low", "close")
+    arr = {s: frames[s].reindex(calendar)[list(cols)].to_numpy(float) for s in symbols}
+    has_bar = {s: calendar.isin(frames[s].index) for s in symbols}
+    spread_arr = {s: (frames[s]["spread"].reindex(calendar).to_numpy(float) if "spread" in frames[s]
+                      else np.full(n, np.nan)) for s in symbols}
+    ratio_arr = {s: ratio[s].to_numpy(float) for s in symbols}
+    fx_arr = {s: fx[s].to_numpy(float) for s in symbols}
+    w_al = weights.reindex(calendar)
+    is_signal = calendar.isin(weights.index)
+    w_arr = {s: w_al[s].to_numpy(float) for s in symbols}
+    stop_arr = ({s: stops.reindex(calendar)[s].to_numpy(float) if s in stops.columns else np.full(n, np.nan)
+                 for s in symbols} if stops is not None else None)
+
     ledger = Ledger(costs, balance=capital)
     last_close = {s: np.nan for s in symbols}
     rows, fills, held_rows = [], [], []
     peak = capital
-    for k in range(1, len(calendar)):
+    for k in range(1, n):
         t, d = calendar[k - 1], calendar[k]
         bars = {}
-        tradable = set()
         for s in symbols:
-            f = frames[s]
-            if d in f.index:
-                b = f.loc[d]
-                last_close[s] = float(b["close"])
-                spread = b["spread"] if "spread" in b and pd.notna(b["spread"]) else None
-                r = ratio[s].get(d)
-                bars[s] = Bar(float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"]),
-                              float(fx[s].get(d)), spread, None if pd.isna(r) else float(r))
-                tradable.add(s)
+            if has_bar[s][k]:
+                o, h, lo_, c = arr[s][k]
+                last_close[s] = c
+                sp = spread_arr[s][k]
+                r = ratio_arr[s][k]
+                bars[s] = Bar(o, h, lo_, c, fx_arr[s][k], None if np.isnan(sp) else sp, None if np.isnan(r) else r)
             elif not np.isnan(last_close[s]):
                 c = last_close[s]
-                bars[s] = Bar(c, c, c, c, float(fx[s].get(d)))
+                bars[s] = Bar(c, c, c, c, fx_arr[s][k])
             else:
                 bars[s] = Bar(np.nan, np.nan, np.nan, np.nan, 1.0)
         targets: dict[str, float] = {}
         target_stops: dict[str, float | None] = {}
-        if t in weights.index and lo <= d:
+        if is_signal[k - 1] and lo <= d:
             mult = exposure_fn(t, rows[-1]["equity"] if rows else capital, peak) if exposure_fn else 1.0
             for s in symbols:
-                if s not in tradable or s not in frames or t not in frames[s].index:
+                if not (has_bar[s][k] and has_bar[s][k - 1]):
                     continue
-                w = weights.at[t, s]
-                w = 0.0 if pd.isna(w) else float(w) * mult
-                px_t = float(frames[s].at[t, "close"])
-                fx_t = float(fx[s].get(t, fx[s].get(d)))
+                w = w_arr[s][k - 1]
+                w = 0.0 if np.isnan(w) else w * mult
+                px_t = arr[s][k - 1][3]
+                fx_t = fx_arr[s][k - 1]
                 pos = ledger.positions.get(s)
                 current_w = (pos.units * px_t * fx_t / capital) if pos else 0.0
                 if abs(w - current_w) <= band and not (w == 0.0 and current_w != 0.0):
                     continue
                 targets[s] = w * capital / (px_t * fx_t)
-                if stops is not None and t in stops.index and s in stops.columns and pd.notna(stops.at[t, s]):
-                    target_stops[s] = float(stops.at[t, s])
+                if stop_arr is not None and not np.isnan(stop_arr[s][k - 1]):
+                    target_stops[s] = float(stop_arr[s][k - 1])
         res = ledger.run_session(d, bars, targets, target_stops, fill=fill_field)
         for s, field in res.fills:
             fills.append({"symbol": s, "signal_date": t, "signal_phase": PHASE["close"],
