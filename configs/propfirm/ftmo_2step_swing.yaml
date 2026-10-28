@@ -1,0 +1,40 @@
+# FTMO 2-Step challenge, Swing account (default preset).
+# Source: https://ftmo.com/en/trading-objectives/ (consulted 2026-10-28, values to be re-checked).
+name: FTMO 2-Step Swing
+initial_capital: 100000
+currency: USD
+
+daily_loss:
+  pct_of_initial: 0.05
+  # Reference = max(balance, equity) at the daily reset (midnight Europe/Prague). With daily
+  # bars it is approximated by the values at the close of the previous bar.
+  reference: max_balance_equity
+  floating_counts: true
+
+total_loss:
+  type: static            # static | trailing_eod
+  pct_of_initial: 0.10
+
+phases:
+  - name: phase1
+    profit_target_pct: 0.10
+    min_trading_days: 4   # TODO: vérifier sur le site FTMO / FundedNext
+    max_calendar_days: null   # FTMO removed the time limit; the simulator applies its own horizon
+  - name: phase2
+    profit_target_pct: 0.05
+    min_trading_days: 4   # TODO: vérifier sur le site FTMO / FundedNext
+    max_calendar_days: null
+
+best_day_rule_pct: null   # no consistency rule on this account
+
+# Maximum leverage of the Swing account, per asset class.
+leverage:                 # TODO: vérifier sur le site FTMO / FundedNext
+  fx: 30
+  index: 15
+  metal: 9
+  energy: 5
+
+allowed:
+  overnight: true
+  weekend: true
+  news: true

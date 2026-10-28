@@ -1,0 +1,37 @@
+# FundedNext Stellar 2-Step challenge.
+# Source: https://fundednext.com/stellar-model (consulted 2026-10-28, values to be re-checked).
+name: FundedNext Stellar 2-Step
+initial_capital: 100000
+currency: USD
+
+daily_loss:
+  pct_of_initial: 0.05            # TODO: vérifier sur le site FTMO / FundedNext
+  reference: max_balance_equity   # TODO: vérifier sur le site FTMO / FundedNext
+  floating_counts: true
+
+total_loss:
+  type: static
+  pct_of_initial: 0.10            # TODO: vérifier sur le site FTMO / FundedNext
+
+phases:
+  - name: phase1
+    profit_target_pct: 0.08       # TODO: vérifier sur le site FTMO / FundedNext
+    min_trading_days: 5           # TODO: vérifier sur le site FTMO / FundedNext
+    max_calendar_days: null
+  - name: phase2
+    profit_target_pct: 0.05       # TODO: vérifier sur le site FTMO / FundedNext
+    min_trading_days: 5           # TODO: vérifier sur le site FTMO / FundedNext
+    max_calendar_days: null
+
+best_day_rule_pct: null
+
+leverage:                         # TODO: vérifier sur le site FTMO / FundedNext
+  fx: 100
+  index: 20
+  metal: 40
+  energy: 10
+
+allowed:
+  overnight: true
+  weekend: true                   # TODO: vérifier sur le site FTMO / FundedNext
+  news: true                      # TODO: vérifier sur le site FTMO / FundedNext
