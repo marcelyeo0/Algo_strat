@@ -67,9 +67,25 @@ def apply_margin(w: pd.DataFrame, classes: dict[str, str], leverage: dict[str, f
     return w.mul(factor, axis=0)
 
 
+def rebalance_days(index: pd.DatetimeIndex, rebalance: str, weekday: int = 4) -> pd.DatetimeIndex:
+    """Signal dates on which new target weights are issued.
+
+    ``weekly``: the last session of each week ending on ``weekday`` (Friday by default), so that
+    a holiday on Friday moves the rebalance to the previous session.
+    """
+    if rebalance == "daily":
+        return index
+    if rebalance == "weekly":
+        weeks = pd.Series(index, index=index).groupby(index.to_period(f"W-{['MON','TUE','WED','THU','FRI','SAT','SUN'][weekday]}")).max()
+        return pd.DatetimeIndex(weeks.to_numpy())
+    raise ValueError(f"Unknown rebalance frequency '{rebalance}'")
+
+
 def build_portfolio(pos: pd.DataFrame, returns: pd.DataFrame, classes: dict[str, str], caps: dict[str, float],
                     target_vol: float, leverage: dict[str, float], cov_window: int = 126,
-                    regime: pd.Series | None = None) -> pd.DataFrame:
+                    regime: pd.Series | None = None, rebalance: str = "daily") -> pd.DataFrame:
+    """Target weights, issued only on the rebalance days (the engine holds them in between)."""
+    pos = pos.loc[rebalance_days(pd.DatetimeIndex(pos.index), rebalance)]
     w = equal_risk(pos)
     w = cap_class_risk(w, classes, caps)
     w = target_portfolio_vol(w, returns, target_vol, cov_window)

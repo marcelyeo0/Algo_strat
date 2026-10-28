@@ -54,11 +54,21 @@ regime:
   basket: [XAUUSD]
   mode: continuous
 
+# Tuning (CFD mode). Budget reduced to 100 trials and at most four continuous parameters plus the
+# regime switch: the next-close replication edge is close to zero, a wide search would overfit.
+# Meta-labeling is a fixed ablation, not a tuned dimension.
 tuning:
-  n_trials: 200                 # fixed in advance, every trial is logged
+  n_trials: 100                 # fixed in advance, every trial is logged
+  space:
+    ema_lambda: [0.90, 0.995]   # smoothing of the signal (lookback)
+    entry_threshold: [0.50, 0.65]
+    hard_stop_atr: [1.0, 4.0]
+    target_vol: [0.05, 0.20]
+    regime: [false, true]
 
 # CFD adaptation (prop account): no market impact at retail size, linear cost from the active
 # cost profile (half spread + commission, per side), swaps and leverage from the prop engine.
 cfd:
-  impact_gamma: 0.0
+  target_vol: 0.10              # only sizing parameter in CFD mode (plain volatility targeting)
+  w_max: 2.0
   dev_first_test: "2010-01-01"   # first test window of the development walk-forward

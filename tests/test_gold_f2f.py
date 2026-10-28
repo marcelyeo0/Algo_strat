@@ -65,14 +65,18 @@ def test_rules_hard_stop_and_timeout():
     assert rules.loc[rules["weight"] > 0, "stop"].notna().all()
 
 
-def test_t0_uses_same_close_and_t1_does_not():
-    idx = pd.bdate_range("2020-01-01", periods=5)
-    ret = pd.Series([0.0, 0.10, -0.05, 0.02, 0.0], index=idx)
-    w = pd.Series([0.0, 1.0, 1.0, 0.0, 0.0], index=idx)     # decided at each close
-    t0 = strategy_returns(w, ret, 0, 0.0, 0.0)
-    t1 = strategy_returns(w, ret, 1, 0.0, 0.0)
-    assert t0.iloc[1] == pytest.approx(0.10)                 # earns the very return used to decide
-    assert t1.iloc[1] == 0.0 and t1.iloc[2] == pytest.approx(-0.05)
+def test_execution_shifts_never_trade_on_the_signal_close():
+    from strat_gold_f2f.strategy import EXECUTION_SHIFT, TRADABLE_EXECUTIONS
+
+    idx = pd.bdate_range("2020-01-01", periods=6)
+    ret = pd.Series([0.0, 0.10, -0.05, 0.02, 0.03, 0.0], index=idx)
+    w = pd.Series([0.0, 1.0, 0.0, 0.0, 0.0, 0.0], index=idx)   # decided at the close of day 1
+    nxt = strategy_returns(w, ret, "next_close")
+    assert nxt.iloc[1] == 0.0 and nxt.iloc[2] == 0.0           # filled at the close of day 2 ...
+    assert nxt.iloc[3] == pytest.approx(0.02)                  # ... earns the return of day 3
+    for name in TRADABLE_EXECUTIONS:
+        assert EXECUTION_SHIFT[name] >= 2
+    assert strategy_returns(w, ret, "signal_close_diagnostic").iloc[2] == pytest.approx(-0.05)
 
 
 def test_triple_barrier_labels():

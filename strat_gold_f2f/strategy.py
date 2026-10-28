@@ -7,9 +7,9 @@ the ATR known at t:
 * long  -> exit on the hard stop (entry - a ATR), the trailing stop (peak - b ATR), the
            timeout, or regime de-risking (p_bear > 0.5); otherwise the weight is re-sized.
 
-The weight decided at the close of t is traded either at the next open (prop engine), at the
-close of t+1 (paper "T+1" baseline), or - for the paper's headline figures only - applied to
-the return of t itself ("T+0"), which uses the closing price at which the signal is computed.
+The weight decided at the close of t is traded at the next open or at the close of t+1, never
+at the close used to compute it. Two non-tradable diagnostics exist only to compare with the
+paper (see ``EXECUTION_SHIFT``).
 """
 
 from __future__ import annotations
@@ -75,7 +75,12 @@ def run_rules(bars: pd.DataFrame, sig: pd.DataFrame, cfg: dict[str, Any], kelly:
             in_trade, entry, peak, days, size_mult = True, close[t], close[t], 0, mult
             entry_flag[t] = True
         if in_trade:
-            w = 1.0 if kelly is None else position_weight(p_bull[t], vol[t], kelly, xc)
+            if kelly is None:
+                w = 1.0
+            elif xc.get("mode", "paper_kelly") == "vol_target":
+                w = min(float(xc["w_max"]), float(xc["target_vol"]) / (vol[t] * np.sqrt(ANNUAL)))
+            else:
+                w = position_weight(p_bull[t], vol[t], kelly, xc)
             if kelly is not None and 1 - p_bull[t] > derisk and sc.get("derisk_action") == "halve":
                 w *= 0.5
             weight[t] = w * size_mult
@@ -83,17 +88,24 @@ def run_rules(bars: pd.DataFrame, sig: pd.DataFrame, cfg: dict[str, Any], kelly:
     return pd.DataFrame({"weight": weight, "stop": stop, "entry": entry_flag, "exit_reason": exit_reason}, index=bars.index)
 
 
-def strategy_returns(weight: pd.Series, ret: pd.Series, lag: int, k_bps: float, gamma: float,
-                     vol: pd.Series | None = None) -> pd.Series:
-    """Paper-style daily net returns: w_{t-lag} r_t - k |dw| - gamma sigma_1d |dw|^{3/2}.
+# Number of sessions between the close at which a weight is decided and the first return it earns.
+#   next_close               : decided at close t, executed at close t+1, earns r_{t+2}  (tradable)
+#   signal_close_diagnostic  : executed at the very close used to compute the signal, earns r_{t+1}
+#                              (the paper's "T+0"; NOT tradable, diagnostic only)
+#   lookahead_diagnostic     : earns r_t, the return already used by the signal (pure look-ahead,
+#                              upper bound, diagnostic only)
+EXECUTION_SHIFT = {"next_close": 2, "signal_close_diagnostic": 1, "lookahead_diagnostic": 0}
+TRADABLE_EXECUTIONS = ("next_close",)
 
-    lag = 0 is the paper's T+0 headline (same-close execution, look-ahead); lag = 1 is T+1.
-    """
-    w = weight.shift(lag).fillna(0.0)
-    dw = w.diff().abs().fillna(w.abs())
-    sigma = vol.reindex(w.index).fillna(0.0) if vol is not None else 0.0
-    cost = k_bps * 1e-4 * dw + gamma * sigma * dw ** 1.5
-    return (w * ret.fillna(0.0) - cost).rename("ret")
+
+def strategy_returns(weight: pd.Series, ret: pd.Series, execution: str = "next_close", k_bps: float = 0.0,
+                     gamma: float = 0.0, vol: pd.Series | None = None) -> pd.Series:
+    """Paper-style daily net returns: h_t r_t - k |dh| - gamma sigma_1d |dh|^{3/2}, h = held weight."""
+    held = weight.shift(EXECUTION_SHIFT[execution]).fillna(0.0)
+    dh = held.diff().abs().fillna(held.abs())
+    sigma = vol.reindex(held.index).fillna(0.0) if vol is not None else 0.0
+    cost = k_bps * 1e-4 * dh + gamma * sigma * dh ** 1.5
+    return (held * ret.fillna(0.0) - cost).rename("ret")
 
 
 def sharpe(r: pd.Series) -> float:
@@ -109,7 +121,8 @@ def max_drawdown(r: pd.Series) -> float:
 def kelly_from_train(bars: pd.DataFrame, sig: pd.DataFrame, cfg: dict, train_end: pd.Timestamp) -> tuple[float, float, float]:
     """mu, sigma of unit-weight trade returns on the train window and the resulting f*."""
     unit = run_rules(bars.loc[:train_end], sig.loc[:train_end], cfg, kelly=None)["weight"]
-    r = (unit.shift(1) * bars["ret"].loc[:train_end]).loc[unit.shift(1) > 0].dropna()
+    held = unit.shift(EXECUTION_SHIFT["next_close"])
+    r = (held * bars["ret"].loc[:train_end]).loc[held > 0].dropna()
     mu, sd = (float(r.mean()), float(r.std())) if len(r) > 20 else (0.0, 0.0)
     xc = cfg["sizing"]
     f = impact_adjusted_kelly(mu, sd, float(xc["turnover_n"]), float(xc["linear_cost_bps"]) * 1e-4, float(xc["impact_gamma"]))
@@ -139,7 +152,7 @@ def fold_weights(bars: pd.DataFrame, cfg: dict, fold: Fold, meta_prob: ProbFn | 
 
 
 def select_on_train(bars: pd.DataFrame, cfg: dict, fold: Fold) -> tuple[dict, float]:
-    """Paper replication: pick the grid combination with the best train Sharpe at T+1."""
+    """Paper replication: pick the grid combination with the best train Sharpe (next-close execution)."""
     grid = cfg["replication"]["grid"]
     keys = list(grid)
     xc = cfg["sizing"]
@@ -153,14 +166,18 @@ def select_on_train(bars: pd.DataFrame, cfg: dict, fold: Fold) -> tuple[dict, fl
         sig = regime_signal(window, float(sc["ema_lambda"]), int(sc["momentum_k"]), float(sc["omega"]), fold.train_end)
         _, _, f = kelly_from_train(window, sig, c, fold.train_end)
         w = run_rules(window, sig, c, kelly=f)["weight"]
-        s = sharpe(strategy_returns(w, window["ret"], 1, float(xc["linear_cost_bps"]), float(xc["impact_gamma"]), vol))
+        s = sharpe(strategy_returns(w, window["ret"], "next_close", float(xc["linear_cost_bps"]), float(xc["impact_gamma"]), vol))
         if np.isfinite(s) and s > best_s:
             best, best_s = params, s
     return best or {}, best_s
 
 
 def replicate_paper(bars: pd.DataFrame, cfg: dict) -> dict[str, Any]:
-    """Walk-forward replication (10y rolling train, 6m test, 2015 -> 2025-10) at T+0 and T+1."""
+    """Walk-forward replication (10y rolling train, 6m test, from 2015 to the configured last date).
+
+    Reported for the tradable next-close execution and, for comparison with the paper only, for
+    the two non-tradable diagnostics.
+    """
     rc, wc, xc = cfg["replication"], cfg["walk_forward"], cfg["sizing"]
     folds = make_folds(bars.index, float(wc["train_years"]), int(wc["test_months"]), bool(wc["expanding"]),
                        first_test=pd.Timestamp(rc["first_test"]), last_date=pd.Timestamp(rc["last_date"]))
@@ -174,8 +191,8 @@ def replicate_paper(bars: pd.DataFrame, cfg: dict) -> dict[str, Any]:
     ret = bars["ret"].reindex(weights.index)
     vol = ewma_vol(bars["ret"].fillna(0.0), int(xc["ewma_span"])).reindex(weights.index)
     out = {"folds": pd.DataFrame(chosen), "weights": weights}
-    for lag, name in ((0, "T+0"), (1, "T+1")):
-        r = strategy_returns(weights["weight"], ret, lag, float(xc["linear_cost_bps"]), float(xc["impact_gamma"]), vol)
+    for name in EXECUTION_SHIFT:
+        r = strategy_returns(weights["weight"], ret, name, float(xc["linear_cost_bps"]), float(xc["impact_gamma"]), vol)
         out[name] = {
             "returns": r, "sharpe": sharpe(r), "max_drawdown": max_drawdown(r),
             "ann_return": float(r.mean() * ANNUAL), "ann_vol": float(r.std() * np.sqrt(ANNUAL)),
@@ -188,9 +205,18 @@ def replicate_paper(bars: pd.DataFrame, cfg: dict) -> dict[str, Any]:
 # --- CFD adaptation ------------------------------------------------------------------------------
 
 def cfd_config(cfg: dict, cost_fraction: float) -> dict:
-    """Paper sizing with CFD costs: no impact term, round-trip linear cost from the cost profile."""
+    """CFD mode: plain volatility targeting (no impact-adjusted Kelly), costs from the cost profile.
+
+    The impact term is negligible on a 100k account and the impact-adjusted Kelly gives weights
+    of ~0.6 %, which can never reach a prop profit target. The target volatility is the only
+    sizing parameter; it is calibrated against the prop rules in the backtest.
+    """
     out = with_params(cfg, {})
-    out["sizing"]["impact_gamma"] = float(cfg.get("cfd", {}).get("impact_gamma", 0.0))
+    cc = cfg.get("cfd", {})
+    out["sizing"]["mode"] = "vol_target"
+    out["sizing"]["target_vol"] = float(cc.get("target_vol", out["sizing"]["target_vol"]))
+    out["sizing"]["w_max"] = float(cc.get("w_max", out["sizing"]["w_max"]))
+    out["sizing"]["impact_gamma"] = 0.0
     out["sizing"]["linear_cost_bps"] = 2 * cost_fraction * 1e4
     return out
 
