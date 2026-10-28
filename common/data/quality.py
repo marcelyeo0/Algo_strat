@@ -24,6 +24,7 @@ class QualityReport:
     outliers: int
     outliers_near_roll: int
     roll_sessions: int
+    open_eq_prev_close_pct: float = float("nan")
     calendar_coverage: float = float("nan")
     outlier_dates: list[str] = field(default_factory=list)
 
@@ -52,6 +53,9 @@ def check_bars(
     missing = weekdays.difference(idx)
     gaps = pd.Series(idx[1:] - idx[:-1]).dt.days if len(idx) > 1 else pd.Series(dtype=float)
     src = raw if raw is not None else bars
+    prev_close = src["close"].shift(1)
+    stale_open = (src["open"] - prev_close).abs() <= 1e-12 * src["close"].abs()
+    open_eq_prev = float(stale_open.iloc[1:].mean()) if len(src) > 1 else float("nan")
     duplicates = int(src.index.duplicated().sum())
     non_positive = int((src[["open", "high", "low", "close"]] <= 0).any(axis=1).sum())
     inconsistent = int(
@@ -84,6 +88,7 @@ def check_bars(
         outliers=int(jumps.sum()),
         outliers_near_roll=int((jumps & roll_near).sum()),
         roll_sessions=int(bars["is_roll"].sum()),
+        open_eq_prev_close_pct=open_eq_prev,
         outlier_dates=outlier_dates,
     )
 
@@ -109,6 +114,7 @@ def render_markdown(rep: QualityReport) -> str:
         f"- Prix nuls ou négatifs dans la source : {rep.non_positive_prices} (barres supprimées)",
         f"- Barres OHLC incohérentes dans la source : {rep.ohlc_inconsistent} (high/low élargis pour encadrer open et close)",
         f"- Séquences de clôtures figées (≥ 5 jours) : {rep.stale_runs}",
+        f"- Opens égaux à la clôture de la veille (opens probablement périmés) : {rep.open_eq_prev_close_pct:.1%}",
         f"- Sessions de roll neutralisées (calendrier d'échéance) : {rep.roll_sessions}",
         f"- Rendements > k·σ signalés : {rep.outliers}, dont {rep.outliers_near_roll} à moins de 3 séances d'un roll",
         f"- Couverture du calendrier commun : {rep.calendar_coverage:.1%}",

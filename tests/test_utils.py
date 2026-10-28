@@ -31,3 +31,22 @@ def test_write_meta(tmp_path, monkeypatch):
     assert meta["config"] == {"x": 1}
     assert meta["seeds"] == {"numpy": 1}
     assert "git_commit" in meta and "packages" in meta
+
+
+def test_meta_header_shows_cost_profile(tmp_path, monkeypatch):
+    monkeypatch.setenv("ALGO_RESULTS_DIR", str(tmp_path))
+    run_dir = write_meta("unit_test", {"x": 1}, {"numpy": 1}, cost_profile="estimates")
+    meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+    assert list(meta)[:2] == ["banner", "cost_profile"]
+    assert meta["banner"].endswith("Résultats provisoires — coûts estimés")
+
+
+def test_holdout_refused_with_estimates_even_with_confirmation():
+    from typer.testing import CliRunner
+
+    from common.cli import app
+
+    res = CliRunner().invoke(app, ["holdout", "--strat", "gold_f2f", "--config", "x.yaml",
+                                   "--cost-profile", "estimates", "--i-confirm"])
+    assert res.exit_code == 2
+    assert "Refused" in res.output

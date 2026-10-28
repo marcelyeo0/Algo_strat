@@ -62,11 +62,22 @@ def new_run_id(prefix: str) -> str:
     return f"{prefix}_{stamp}"
 
 
-def write_meta(run_id: str, config: dict[str, Any], seeds: dict[str, int], extra: dict | None = None) -> Path:
-    """Write ``meta.json`` into ``results/<run_id>/`` and return the run directory."""
+def write_meta(run_id: str, config: dict[str, Any], seeds: dict[str, int], extra: dict | None = None,
+               cost_profile: str | None = None) -> Path:
+    """Write ``meta.json`` into ``results/<run_id>/`` and return the run directory.
+
+    The cost profile and its banner ("Résultats provisoires — coûts estimés" for the
+    estimates profile) come first so that they are visible at the top of the file.
+    """
+    from common.utils.settings import cost_profile as active_profile
+    from common.utils.settings import profile_banner
+
+    profile = cost_profile or active_profile()
     run_dir = results_dir() / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     meta = {
+        "banner": profile_banner(profile),
+        "cost_profile": profile,
         "run_id": run_id,
         "created_utc": datetime.now(UTC).isoformat(),
         "git_commit": git_commit(),
@@ -79,5 +90,5 @@ def write_meta(run_id: str, config: dict[str, Any], seeds: dict[str, int], extra
     }
     if extra:
         meta.update(extra)
-    (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
+    (run_dir / "meta.json").write_text(json.dumps(meta, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
     return run_dir

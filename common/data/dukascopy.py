@@ -61,8 +61,10 @@ def decode_hour_candles(raw: bytes, month_start: pd.Timestamp, point: float) -> 
 
 
 class DukascopyClient:
-    def __init__(self, cache_dir: Path, min_interval_s: float = 1.0, max_retries: int = 4, timeout_s: float = 30.0):
+    def __init__(self, cache_dir: Path, min_interval_s: float = 1.0, max_retries: int = 4, timeout_s: float = 30.0,
+                 offline: bool = False):
         self.cache_dir = cache_dir
+        self.offline = offline
         self.min_interval_s = min_interval_s
         self.max_retries = max_retries
         self.timeout_s = timeout_s
@@ -96,6 +98,8 @@ class DukascopyClient:
         cache = self.cache_dir / instrument / f"{year}-{month:02d}_{side}.bin"
         if cache.exists():
             return cache.read_bytes()
+        if self.offline:
+            raise DukascopyUnavailable(f"{instrument} {year}-{month:02d} {side} not in the local cache (offline mode)")
         url = f"{BASE_URL}/{instrument}/{year}/{month - 1:02d}/{side}_candles_hour_1.bi5"
         payload = self._get(url)
         raw = lzma.decompress(payload) if payload else b""
@@ -153,3 +157,28 @@ def load_daily(
     spread_med = hourly["spread"].groupby(keys).median()
     daily["spread"] = spread_med.reindex(daily.index)
     return daily
+
+
+def slow_download(instruments: list[str], start: pd.Timestamp, cache_dir: Path, min_interval_s: float = 5.0,
+                  max_retries: int = 6) -> dict[str, str]:
+    """Download every monthly bid/ask file not yet cached, slowly, and stop cleanly when refused.
+
+    Progress is the local cache itself: re-running the command resumes where it stopped.
+    Returns ``{instrument: "complete" | "stopped at YYYY-MM"}``.
+    """
+    client = DukascopyClient(cache_dir, min_interval_s=min_interval_s, max_retries=max_retries)
+    now = pd.Timestamp.now()
+    months = pd.date_range(start.to_period("M").to_timestamp(), now, freq="MS")
+    status: dict[str, str] = {}
+    for instrument in instruments:
+        status[instrument] = "complete"
+        for m in months:
+            try:
+                for side in ("BID", "ASK"):
+                    client.month_file(instrument, m.year, m.month, side)
+            except DukascopyUnavailable as exc:
+                status[instrument] = f"stopped at {m:%Y-%m} ({exc})"
+                log.warning("%s: %s - re-run the command later to resume.", instrument, status[instrument])
+                return {**status, **{i: "not started" for i in instruments if i not in status}}
+        log.info("%s: all months cached", instrument)
+    return status

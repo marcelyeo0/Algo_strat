@@ -7,7 +7,7 @@ import pytest
 from common.backtest.ledger import Bar, Ledger
 from common.costs.model import CostModel, InstrumentCost, SpreadWidening, stop_fill
 from common.propfirm.account import PropAccount, Status
-from common.propfirm.challenge import simulate_challenges, summarise
+from common.propfirm.challenge import simulate_challenges, summarise, summarise_horizons
 from common.propfirm.rules import Phase, PropRules, load_prop_rules
 from common.utils.config import UnverifiedConfigWarning
 
@@ -127,8 +127,8 @@ def test_best_day_rule_blocks_pass():
 
 def cost_model() -> CostModel:
     inst = {
-        "US500": InstrumentCost("US500", "USD", 1, 0.5, 0.0, -6.0, -2.0, triple_swap_day=4, stop_slippage_spreads=0.0),
-        "EURUSD": InstrumentCost("EURUSD", "USD", 100_000, 0.0001, 2.5, -2.0, -2.0, triple_swap_day=2),
+        "US500": InstrumentCost("US500", "USD", 1, 0.5, 0.0, triple_swap_day=4, swap_long=-6.0, swap_short=-2.0, stop_slippage_spreads=0.0),
+        "EURUSD": InstrumentCost("EURUSD", "USD", 100_000, 0.0001, 2.5, triple_swap_day=2, swap_long=-2.0, swap_short=-2.0),
     }
     return CostModel(inst, SpreadWidening(enabled=True, range_atr_threshold=2.0, factor=2.0))
 
@@ -211,38 +211,57 @@ def test_ledger_realises_pnl_on_reduction_and_flip():
 
 # --- challenge simulator ------------------------------------------------------------------------
 
-def _path(daily_ret: np.ndarray, start="2020-01-01") -> pd.DataFrame:
+def _factory(daily_ret: np.ndarray, start="2020-01-01", entry_cost=0.0):
+    """Fresh account at every start: P&L accrues only from the start session, minus entry costs."""
     idx = pd.bdate_range(start, periods=len(daily_ret))
-    equity = INITIAL + INITIAL * np.cumsum(daily_ret)
-    return pd.DataFrame({"balance": equity, "equity": equity, "equity_worst": equity, "traded": True}, index=idx)
+
+    def factory(first: pd.Timestamp):
+        pos = idx.get_loc(first)
+        equity = INITIAL - entry_cost
+        for i in range(pos, len(idx)):
+            equity += INITIAL * daily_ret[i]
+            yield {"date": idx[i], "balance": equity, "equity": equity, "equity_worst": equity, "traded": True}
+
+    return factory, idx
 
 
 def test_challenge_steady_growth_passes_both_phases():
-    path = _path(np.full(400, 0.005))
-    out = simulate_challenges(path, rules(), start="2020-01-01", end="2020-06-30")
-    assert (out["result"] == "passed").all()
+    factory, idx = _factory(np.full(400, 0.005))
+    out = simulate_challenges(factory, idx, rules(), start="2020-01-01", end="2020-06-30")
+    assert (out["phase1_result"] == "passed").all() and (out["phase2_result"] == "passed").all()
     assert (out["phase1_days"] == 20).all()      # 10% at 0.5% per session
-    assert (out["phase2_days"] == 10).all()
-    s = summarise(out)
-    assert s["pass_all"] == 1.0 and s["median_days_phase1"] == 20
+    assert (out["phase2_days"] == 10).all()      # fresh account for phase 2
+    s = summarise(out, n_phases=2, horizon=126)
+    assert s["pass_all"] == 1.0 and s["median_sessions_phase1"] == 20 and s["median_sessions_all"] == 30
 
 
-def test_challenge_crash_fails_and_timeout():
+def test_challenge_horizons_and_unlimited():
+    factory, idx = _factory(np.full(700, 0.0011))   # ~91 sessions for phase 1
+    out = simulate_challenges(factory, idx, rules(), start="2020-01-01", end="2020-01-31")
+    table = summarise_horizons(out, n_phases=2)
+    by_h = table.set_index("horizon")
+    assert by_h.loc["63", "timeout"] == 1.0
+    assert by_h.loc["126", "pass_phase1"] == 1.0
+    assert by_h.loc["unlimited", "pass_all"] == 1.0
+
+
+def test_challenge_crash_fails():
     ret = np.zeros(400)
     ret[30] = -0.06
-    out = simulate_challenges(_path(ret), rules(), start="2020-01-01", end="2020-01-31", horizon_sessions=126)
-    assert out.iloc[0]["result"] == "failed_daily_loss"
-    flat = simulate_challenges(_path(np.zeros(400)), rules(), start="2020-01-01", end="2020-01-31", horizon_sessions=50)
-    assert flat.iloc[0]["result"] == "timeout"
-    assert summarise(flat)["timeout"] == 1.0
+    factory, idx = _factory(ret)
+    out = simulate_challenges(factory, idx, rules(), start="2020-01-01", end="2020-01-31")
+    assert out.iloc[0]["phase1_result"] == "failed_daily_loss"
+    assert summarise(out, 2, None)["fail_daily"] == 1.0
 
 
-def test_challenge_rebases_each_start():
-    # The account starts at the initial capital at every monthly start, whatever happened before.
+def test_challenge_starts_on_fresh_account_with_entry_costs():
+    # Losses before a start never leak into it; entry costs are paid at every start.
     ret = np.full(400, 0.001)
-    ret[:40] = -0.002          # losing first two months, must not affect later starts
-    out = simulate_challenges(_path(ret), rules(), start="2020-03-01", end="2020-04-30", horizon_sessions=300)
+    ret[:40] = -0.002
+    factory, idx = _factory(ret, entry_cost=500.0)
+    out = simulate_challenges(factory, idx, rules(), start="2020-03-01", end="2020-04-30")
     assert (out["phase1_result"] == "passed").all()
+    assert (out["phase1_days"] == 105).all()     # (10% + 0.5% entry cost) / 0.1% per session
 
 
 # --- configuration --------------------------------------------------------------------------------
@@ -263,6 +282,36 @@ def test_presets_load_and_warn_on_unverified_values():
 def test_cost_yaml_loads():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        cm = CostModel.from_yaml()
+        cm = CostModel.from_profile("estimates")
+    assert cm.profile == "estimates"
     assert cm.instruments["XAUUSD"].contract_size == 100
     assert cm.instruments["US500"].triple_swap_day == 4
+
+
+def test_futures_based_cfds_only_pay_the_broker_markup():
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        cm = CostModel.from_profile("estimates")
+    long_ = cm.swap("XAUUSD", 100, 2000.0, weekday=1)
+    short = cm.swap("XAUUSD", -100, 2000.0, weekday=1)
+    assert long_ == pytest.approx(short) == pytest.approx(-200_000 * 0.02 / 360)
+
+
+def test_positive_swaps_are_never_credited():
+    cm = cost_model().with_instrument("EURUSD", swap_short=1.5)
+    assert cm.swap("EURUSD", -100_000, 1.1, weekday=1) == 0.0
+
+
+def test_cost_profile_selection_and_holdout_guard(monkeypatch):
+    from common.utils import settings as st
+    assert st.cost_profile() == "estimates"
+    assert st.cost_profile("estimates") == "estimates"
+    with pytest.raises(FileNotFoundError):
+        st.cost_profile("mt5")          # not generated yet
+    with pytest.raises(ValueError):
+        st.cost_profile("cheap")
+    assert not st.holdout_allowed("estimates")
+    assert "provisoires" in st.profile_banner("estimates")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert load_prop_rules("ftmo_2step_swing").leverage["fx"] == 30

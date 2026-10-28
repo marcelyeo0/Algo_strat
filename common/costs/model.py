@@ -1,7 +1,8 @@
 """Trading cost model: spreads, commissions, overnight swaps and stop slippage.
 
-Amounts are returned in account currency (USD). ``fx`` is the quote-currency to USD rate of
-the instrument on the relevant day (1.0 for USD-quoted instruments).
+Every number comes from the active cost profile (``configs/costs/<profile>.yaml``); nothing is
+hard-coded here. Amounts are returned in account currency (USD). ``fx`` is the quote-currency
+to USD rate of the instrument on the relevant day (1.0 for USD-quoted instruments).
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from common.utils.config import load_yaml, warn_unverified
+from common.utils.settings import cost_profile
 
 DAYS_PER_YEAR = 360.0
 
@@ -21,10 +23,13 @@ class InstrumentCost:
     contract_size: float
     spread: float
     commission_per_lot: float
-    swap_long: float          # % of notional per year, negative = debit
-    swap_short: float
-    triple_swap_day: int      # 0 = Monday
+    triple_swap_day: int              # 0 = Monday
+    swap_mode: str = "full"           # full | markup
+    swap_long: float = 0.0            # % of notional per year, negative = debit (full mode)
+    swap_short: float = 0.0
+    swap_markup: float = 0.0          # % per year charged on both sides (markup mode)
     stop_slippage_spreads: float = 0.5
+    close_execution_slippage_spreads: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -35,32 +40,34 @@ class SpreadWidening:
 
 
 class CostModel:
-    def __init__(self, instruments: dict[str, InstrumentCost], widening: SpreadWidening, multiplier: float = 1.0):
+    def __init__(self, instruments: dict[str, InstrumentCost], widening: SpreadWidening,
+                 multiplier: float = 1.0, profile: str = "custom"):
         self.instruments = instruments
         self.widening = widening
         self.multiplier = multiplier
+        self.profile = profile
 
     @classmethod
-    def from_yaml(cls, name: str = "costs.yaml", multiplier: float = 1.0) -> CostModel:
-        warn_unverified(name)
-        cfg = load_yaml(name)
+    def from_profile(cls, profile: str | None = None, multiplier: float = 1.0) -> CostModel:
+        """Load the active (or given) cost profile."""
+        profile = cost_profile(profile)
+        path = f"costs/{profile}.yaml"
+        warn_unverified(path)
+        cfg = load_yaml(path)
         defaults: dict[str, Any] = cfg.get("defaults", {})
         widening = SpreadWidening(**defaults.get("spread_widening", {}))
-        slip = float(defaults.get("stop_slippage_spreads", 0.5))
-        instruments = {
-            sym: InstrumentCost(symbol=sym, stop_slippage_spreads=float(spec.pop("stop_slippage_spreads", slip)), **spec)
-            for sym, spec in ((s, dict(v)) for s, v in cfg["instruments"].items())
-        }
-        return cls(instruments, widening, multiplier)
+        shared = {k: float(defaults[k]) for k in ("stop_slippage_spreads", "close_execution_slippage_spreads") if k in defaults}
+        instruments = {sym: InstrumentCost(symbol=sym, **{**shared, **spec}) for sym, spec in cfg["instruments"].items()}
+        return cls(instruments, widening, multiplier, profile)
 
     def scaled(self, multiplier: float) -> CostModel:
         """Same model with every cost multiplied (sensitivity tests at x1.5 and x2)."""
-        return CostModel(self.instruments, self.widening, self.multiplier * multiplier)
+        return CostModel(self.instruments, self.widening, self.multiplier * multiplier, self.profile)
 
     def with_instrument(self, symbol: str, **changes: Any) -> CostModel:
         inst = dict(self.instruments)
         inst[symbol] = replace(inst[symbol], **changes)
-        return CostModel(inst, self.widening, self.multiplier)
+        return CostModel(inst, self.widening, self.multiplier, self.profile)
 
     # --- per-trade costs -------------------------------------------------------------------
 
@@ -77,6 +84,12 @@ class CostModel:
         """Cost of crossing half the spread for ``units`` traded (either direction)."""
         return abs(units) * 0.5 * self.effective_spread(symbol, observed, range_atr_ratio) * fx
 
+    def close_execution_slippage(self, symbol: str, units: float, fx: float = 1.0, observed: float | None = None,
+                                 range_atr_ratio: float | None = None) -> float:
+        """Extra slippage of the "close t + slippage" execution mode."""
+        spec = self.instruments[symbol]
+        return abs(units) * spec.close_execution_slippage_spreads * self.effective_spread(symbol, observed, range_atr_ratio) * fx
+
     def commission(self, symbol: str, units: float) -> float:
         spec = self.instruments[symbol]
         return abs(units) / spec.contract_size * spec.commission_per_lot * self.multiplier
@@ -87,16 +100,22 @@ class CostModel:
         """Nights charged for a position held over the close of a session on ``weekday``."""
         return 3 if weekday == self.instruments[symbol].triple_swap_day else 1
 
+    def swap_rate(self, symbol: str, units: float) -> float:
+        """Annual swap rate (%) applied to a position; never positive (no carry credit)."""
+        spec = self.instruments[symbol]
+        if spec.swap_mode == "markup":
+            rate = spec.swap_markup
+        else:
+            rate = spec.swap_long if units > 0 else spec.swap_short
+        return min(rate, 0.0)
+
     def swap(self, symbol: str, units: float, price: float, weekday: int, fx: float = 1.0) -> float:
         """Signed swap (negative = debit) for holding ``units`` over the session close."""
         if units == 0:
             return 0.0
-        spec = self.instruments[symbol]
-        rate = spec.swap_long if units > 0 else spec.swap_short
         notional = abs(units) * price * fx
-        amount = notional * rate / 100.0 / DAYS_PER_YEAR * self.swap_nights(symbol, weekday)
-        # Debits scale with the cost multiplier; credits are never inflated.
-        return amount * self.multiplier if amount < 0 else amount
+        rate = self.swap_rate(symbol, units)
+        return notional * rate / 100.0 / DAYS_PER_YEAR * self.swap_nights(symbol, weekday) * self.multiplier
 
 
 def stop_fill(side: int, stop: float, open_: float, high: float, low: float, slippage: float = 0.0) -> float | None:

@@ -1,0 +1,9 @@
+# Leverage profile "estimates": maximum leverage per asset class and per prop preset.
+# The "mt5" profile (mt5.yaml, same layout) will be filled from the MT5 margin specifications.
+# TODO: vérifier sur le site FTMO / FundedNext (toutes les valeurs de ce fichier)
+profile: estimates
+
+presets:
+  ftmo_2step_swing: {fx: 30, index: 15, metal: 9, energy: 5}
+  ftmo_1step: {fx: 30, index: 15, metal: 9, energy: 5}
+  fundednext_stellar_2step: {fx: 100, index: 20, metal: 40, energy: 10}

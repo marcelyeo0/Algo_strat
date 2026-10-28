@@ -24,11 +24,7 @@ phases:
 # Best-day rule: the most profitable day must not exceed this share of the total profit.
 best_day_rule_pct: 0.50           # TODO: vérifier sur le site FTMO / FundedNext
 
-leverage:                         # TODO: vérifier sur le site FTMO / FundedNext
-  fx: 30
-  index: 15
-  metal: 9
-  energy: 5
+# Leverage per asset class: configs/propfirm/leverage/<cost_profile>.yaml
 
 allowed:
   overnight: true

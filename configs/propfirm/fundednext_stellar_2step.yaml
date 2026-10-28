@@ -25,11 +25,7 @@ phases:
 
 best_day_rule_pct: null
 
-leverage:                         # TODO: vérifier sur le site FTMO / FundedNext
-  fx: 100
-  index: 20
-  metal: 40
-  energy: 10
+# Leverage per asset class: configs/propfirm/leverage/<cost_profile>.yaml
 
 allowed:
   overnight: true

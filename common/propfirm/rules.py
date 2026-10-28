@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from common.utils.config import load_yaml, warn_unverified
+from common.utils.config import load_yaml, resolve_config_path, warn_unverified
+from common.utils.settings import cost_profile
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,19 @@ class PropRules:
         )
 
 
-def load_prop_rules(preset: str = "ftmo_2step_swing") -> PropRules:
+def load_leverage(preset: str, profile: str | None = None) -> dict[str, float]:
+    """Maximum leverage per asset class for ``preset``, from the leverage profile."""
+    profile = cost_profile(profile)
+    path = f"propfirm/leverage/{profile}.yaml"
+    if not resolve_config_path(path).exists():
+        path = "propfirm/leverage/estimates.yaml"
+    warn_unverified(path)
+    return {k: float(v) for k, v in load_yaml(path)["presets"][preset].items()}
+
+
+def load_prop_rules(preset: str = "ftmo_2step_swing", profile: str | None = None) -> PropRules:
     path = f"propfirm/{preset}.yaml"
     warn_unverified(path)
-    return PropRules.from_dict(load_yaml(path))
+    cfg = dict(load_yaml(path))
+    cfg["leverage"] = load_leverage(preset, profile)
+    return PropRules.from_dict(cfg)
