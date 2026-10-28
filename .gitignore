@@ -1,0 +1,40 @@
+# Data and results (regenerable, potentially large)
+data/
+results/raw/
+results/*/models/
+mt5_exports/
+
+# Secrets
+.env
+.env.*
+
+# Downloaded papers (copyright: links only in the repo)
+docs/sources/pdfs/*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Large model artefacts
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.joblib
+*.pkl
+
+# Optuna storages
+*.db
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

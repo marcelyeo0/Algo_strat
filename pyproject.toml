@@ -1,0 +1,54 @@
+[project]
+name = "algo-strat"
+version = "0.1.0"
+description = "Daily swing trading strategies (TSMOM deep learning, gold trend-momentum) evaluated under prop-firm rules."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Marcel YEO" }]
+dependencies = [
+    "numpy>=1.26,<2.3",
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "scipy>=1.13",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.3",
+    "hmmlearn>=0.3.2",
+    "optuna>=3.6",
+    "torch>=2.3",
+    "yfinance>=0.2.40",
+    "requests>=2.31",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "matplotlib>=3.8",
+    "jinja2>=3.1",
+    "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+mt5 = ["MetaTrader5>=5.0.45; sys_platform == 'win32'"]
+
+[project.scripts]
+algo = "common.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8.2", "ruff>=0.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["common", "strat_tsmom_dl", "strat_gold_f2f"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["network: tests that need internet access (deselected by default in CI)"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
