@@ -36,3 +36,24 @@ Profil `estimates` (résultats provisoires). Moteur prop event-driven, capital d
 | F2F CFD XAUUSD | on | 0.66 | 0.48 | 0.51 | 19.0 | -20.8% | -2.49% | -3.30% | 1% | 7% | 0% | 99% | 138 | 6.2 / 0.4 / 6.4 |
 | F2F CFD XAGUSD | off | 0.40 | -0.20 | -0.00 | 13.6 | -42.6% | -3.89% | -3.89% | 5% | 15% | 13% | 82% | 138 | 48.1 / 0.6 / 3.9 |
 | F2F CFD XAGUSD | on | 0.41 | -0.24 | 0.02 | 9.3 | -30.0% | -3.43% | -3.43% | 1% | 1% | 1% | 98% | 138 | 34.7 / 0.4 / 2.5 |
+
+## Baselines — univers étendu (33 instruments), modèle de swap variable — développement 2010-01-01 → 2021-12-31
+
+Profil `estimates` (résultats provisoires). Mêmes conventions que le tableau précédent. Les swaps suivent les taux directeurs historiques de la BIS, diminués des marges provisoires (FX 1,5 %, indices 2,5 %, métaux et énergie 2 %). La colonne « crédit réel » crédite les swaps positifs (sensibilité). Les variantes F2F ne dépendent pas de l'univers. Ces 36 évaluations (12 variantes × 3 configurations d'exécution et de crédit) sont exploratoires et comptées dans le nombre d'essais du DSR.
+
+| Stratégie | Régime | Sharpe brut | Sharpe net (clôture t+1) | Sharpe net (open t+1) | Sharpe net (crédit réel) | Turnover/an | Max DD | Pire jour (clôture) | Pire jour (intraday estimé) | Passage complet à 126 | Phase 1 à 126 | Échecs | Timeouts | Départs | Coûts kUSD spread / comm. | Swap kUSD crédit 0 / crédit réel |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TSMOM 1/3/12 | off | 0.02 | -0.55 | -0.48 | -0.54 | 45.6 | -67.1% | -3.63% | -6.00% | 0% | 1% | 29% | 71% | 138 | 21.4 / 0.8 | 44.1 / 42.9 |
+| TSMOM 1/3/12 | on | 0.07 | -0.54 | -0.46 | -0.53 | 36.7 | -53.4% | -3.62% | -4.74% | 0% | 5% | 14% | 86% | 138 | 16.8 / 0.6 | 36.0 / 35.1 |
+| TSMOM 12m | off | 0.37 | -0.15 | -0.09 | -0.14 | 24.4 | -53.9% | -3.27% | -5.71% | 1% | 7% | 36% | 63% | 138 | 10.2 / 0.4 | 50.4 / 48.9 |
+| TSMOM 12m | on | 0.38 | -0.16 | -0.08 | -0.15 | 20.2 | -40.0% | -3.26% | -5.38% | 1% | 7% | 23% | 75% | 138 | 8.6 / 0.4 | 40.6 / 39.5 |
+| MACD (Baz) | off | 0.01 | -0.48 | -0.41 | -0.47 | 20.2 | -55.0% | -3.50% | -6.19% | 0% | 2% | 22% | 78% | 139 | 8.7 / 0.3 | 41.2 / 40.0 |
+| MACD (Baz) | on | 0.18 | -0.32 | -0.28 | -0.31 | 16.5 | -32.1% | -3.23% | -5.36% | 0% | 5% | 9% | 91% | 138 | 7.1 / 0.3 | 33.8 / 32.9 |
+| Long-only | off | 0.20 | -0.12 | -0.10 | -0.10 | 7.0 | -49.9% | -9.38% | -15.73% | 3% | 6% | 51% | 46% | 139 | 1.5 / 0.1 | 36.4 / 35.0 |
+| Long-only | on | 0.20 | -0.14 | -0.12 | -0.13 | 6.4 | -36.3% | -6.41% | -10.80% | 1% | 4% | 40% | 59% | 139 | 1.6 / 0.1 | 28.9 / 27.8 |
+| F2F CFD XAUUSD | off | 0.49 | 0.30 | 0.25 | 0.30 | 23.9 | -32.1% | -3.22% | -4.90% | 3% | 12% | 1% | 96% | 138 | 7.6 / 0.5 | 8.1 / 8.1 |
+| F2F CFD XAUUSD | on | 0.66 | 0.48 | 0.51 | 0.48 | 19.0 | -20.8% | -2.49% | -3.30% | 1% | 7% | 0% | 99% | 138 | 6.2 / 0.4 | 6.4 / 6.4 |
+| F2F CFD XAGUSD | off | 0.40 | -0.20 | -0.00 | -0.20 | 13.6 | -42.6% | -3.89% | -3.89% | 5% | 15% | 13% | 82% | 138 | 48.1 / 0.6 | 3.9 / 3.9 |
+| F2F CFD XAGUSD | on | 0.41 | -0.24 | 0.02 | -0.24 | 9.3 | -30.0% | -3.43% | -3.43% | 1% | 1% | 1% | 98% | 138 | 34.7 / 0.4 | 2.5 / 2.5 |
+
+**Application de la règle de budget DMN (hypothèse 29 du GUIDE).** La meilleure baseline TSMOM avec bande et rebalancement hebdomadaire est la TSMOM 12 mois sans régime : Sharpe net de −0,15 (clôture t+1), −0,09 en open t+1, −0,14 en crédit réel. Le seuil de 0 n'est pas atteint : **le budget du tuning DMN reste fixé à 50 essais, avec un prior défavorable.**
