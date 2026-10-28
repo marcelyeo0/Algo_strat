@@ -3,15 +3,17 @@
 # spread:              typical full bid/ask spread in price units during normal hours, already
 #                      marked up (roughly 1.5x the usual FTMO quotes) to stay on the prudent side.
 # commission_per_lot:  account-currency commission per lot and per side (FTMO standard: USD 2.5
-#                      per side on FX and metals, i.e. USD 5 per round turn; none on index and oil CFDs).
+#                      per side on FX and metals, i.e. USD 5 per round turn; none on index and energy CFDs).
 # contract_size:       units of the underlying per lot.
-# swap_mode:
-#   full     - FX and cash indices: the price series has no financing, the full CFD swap is
-#              charged (swap_long / swap_short, % of notional per year, negative = debit).
-#   markup   - futures-based series (gold, silver, oil): the futures price already contains the
-#              cost of carry, so only the broker margin above carry is charged (swap_markup,
-#              % per year, debit on both sides).
-#   Positive swaps are never credited.
+# swap_mode (time-varying model, policy rates from the BIS, see common/data/rates.py):
+#   rates        - FX: long = (r_base - r_quote) - markup, short = (r_quote - r_base) - markup
+#   index_rates  - cash indices: long = -(r + markup), short = r - markup, r = index currency rate
+#   markup       - futures-based series (gold, silver, oil, copper, gas): carry already in the
+#                  price, only the broker margin is charged (both sides)
+#   (% of notional per year, ACT/360, negative = debit)
+# swap_markup_by_class: broker margin above the policy-rate differential, % per year. To be
+#   calibrated with the MT5 export (current FTMO swaps - current policy rates).
+# swap_credit: zero = positive swaps are never credited (default) | real = credited (sensitivity).
 # triple_swap_day:     weekday on which three nights are charged (0 = Monday ... 4 = Friday).
 # stop_slippage_spreads: extra slippage on stop fills, in multiples of the spread.
 #
@@ -25,23 +27,49 @@ defaults:
     range_atr_threshold: 2.0   # day range above 2x the 20-day ATR counts as a high-volatility day
     factor: 2.0                # spread multiplier applied on such days
   stop_slippage_spreads: 0.5
-  close_execution_slippage_spreads: 0.5   # extra slippage of the "close t + slippage" execution mode
+  close_execution_slippage_spreads: 0.5   # extra slippage of the "close t+1 + slippage" execution mode
+  swap_credit: zero
+  swap_markup_by_class:        # TODO: vérifier sur le site FTMO / FundedNext (calibrer par l'export MT5)
+    fx: 1.5
+    index: 2.5
+    metal: 2.0
+    energy: 2.0
 
 instruments:
-  EURUSD: {quote_ccy: USD, contract_size: 100000, spread: 0.00009, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  GBPUSD: {quote_ccy: USD, contract_size: 100000, spread: 0.00014, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  USDJPY: {quote_ccy: JPY, contract_size: 100000, spread: 0.014, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  AUDUSD: {quote_ccy: USD, contract_size: 100000, spread: 0.00012, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  USDCAD: {quote_ccy: CAD, contract_size: 100000, spread: 0.00017, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  USDCHF: {quote_ccy: CHF, contract_size: 100000, spread: 0.00017, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  NZDUSD: {quote_ccy: USD, contract_size: 100000, spread: 0.00020, commission_per_lot: 2.5, swap_mode: full, swap_long: -2.0, swap_short: -2.0, triple_swap_day: 2}
-  US500:  {quote_ccy: USD, contract_size: 1, spread: 0.75, commission_per_lot: 0.0, swap_mode: full, swap_long: -6.0, swap_short: -2.0, triple_swap_day: 4}
-  US100:  {quote_ccy: USD, contract_size: 1, spread: 2.25, commission_per_lot: 0.0, swap_mode: full, swap_long: -6.0, swap_short: -2.0, triple_swap_day: 4}
-  US30:   {quote_ccy: USD, contract_size: 1, spread: 3.0, commission_per_lot: 0.0, swap_mode: full, swap_long: -6.0, swap_short: -2.0, triple_swap_day: 4}
-  GER40:  {quote_ccy: EUR, contract_size: 1, spread: 1.8, commission_per_lot: 0.0, swap_mode: full, swap_long: -5.0, swap_short: -2.0, triple_swap_day: 4}
-  UK100:  {quote_ccy: GBP, contract_size: 1, spread: 1.8, commission_per_lot: 0.0, swap_mode: full, swap_long: -6.0, swap_short: -2.0, triple_swap_day: 4}
-  JP225:  {quote_ccy: JPY, contract_size: 1, spread: 12.0, commission_per_lot: 0.0, swap_mode: full, swap_long: -4.0, swap_short: -2.0, triple_swap_day: 4}
-  XAUUSD: {quote_ccy: USD, contract_size: 100, spread: 0.35, commission_per_lot: 2.5, swap_mode: markup, swap_markup: -2.0, triple_swap_day: 2}
-  XAGUSD: {quote_ccy: USD, contract_size: 5000, spread: 0.035, commission_per_lot: 2.5, swap_mode: markup, swap_markup: -2.0, triple_swap_day: 2}
-  USOIL:  {quote_ccy: USD, contract_size: 100, spread: 0.05, commission_per_lot: 0.0, swap_mode: markup, swap_markup: -2.0, triple_swap_day: 4}
-  UKOIL:  {quote_ccy: USD, contract_size: 100, spread: 0.06, commission_per_lot: 0.0, swap_mode: markup, swap_markup: -2.0, triple_swap_day: 4}
+  # FX majors
+  EURUSD: {quote_ccy: USD, base_ccy: EUR, contract_size: 100000, spread: 0.00009, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  GBPUSD: {quote_ccy: USD, base_ccy: GBP, contract_size: 100000, spread: 0.00014, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  USDJPY: {quote_ccy: JPY, base_ccy: USD, contract_size: 100000, spread: 0.014, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  AUDUSD: {quote_ccy: USD, base_ccy: AUD, contract_size: 100000, spread: 0.00012, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  USDCAD: {quote_ccy: CAD, base_ccy: USD, contract_size: 100000, spread: 0.00017, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  USDCHF: {quote_ccy: CHF, base_ccy: USD, contract_size: 100000, spread: 0.00017, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  NZDUSD: {quote_ccy: USD, base_ccy: NZD, contract_size: 100000, spread: 0.00020, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  # FX crosses
+  EURGBP: {quote_ccy: GBP, base_ccy: EUR, contract_size: 100000, spread: 0.00015, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  EURJPY: {quote_ccy: JPY, base_ccy: EUR, contract_size: 100000, spread: 0.020, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  GBPJPY: {quote_ccy: JPY, base_ccy: GBP, contract_size: 100000, spread: 0.035, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  AUDJPY: {quote_ccy: JPY, base_ccy: AUD, contract_size: 100000, spread: 0.020, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  EURCHF: {quote_ccy: CHF, base_ccy: EUR, contract_size: 100000, spread: 0.00020, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  AUDNZD: {quote_ccy: NZD, base_ccy: AUD, contract_size: 100000, spread: 0.00030, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  CADJPY: {quote_ccy: JPY, base_ccy: CAD, contract_size: 100000, spread: 0.025, commission_per_lot: 2.5, swap_mode: rates, triple_swap_day: 2}
+  # Cash indices
+  US500:  {quote_ccy: USD, contract_size: 1, spread: 0.75, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  US100:  {quote_ccy: USD, contract_size: 1, spread: 2.25, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  US30:   {quote_ccy: USD, contract_size: 1, spread: 3.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  US2000: {quote_ccy: USD, contract_size: 1, spread: 0.6, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  GER40:  {quote_ccy: EUR, contract_size: 1, spread: 1.8, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  EU50:   {quote_ccy: EUR, contract_size: 1, spread: 2.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  FRA40:  {quote_ccy: EUR, contract_size: 1, spread: 1.5, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  SPN35:  {quote_ccy: EUR, contract_size: 1, spread: 8.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  N25:    {quote_ccy: EUR, contract_size: 1, spread: 0.30, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  UK100:  {quote_ccy: GBP, contract_size: 1, spread: 1.8, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  JP225:  {quote_ccy: JPY, contract_size: 1, spread: 12.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  AUS200: {quote_ccy: AUD, contract_size: 1, spread: 2.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  HK50:   {quote_ccy: HKD, contract_size: 1, spread: 10.0, commission_per_lot: 0.0, swap_mode: index_rates, triple_swap_day: 4}
+  # Futures-based CFDs
+  XAUUSD: {quote_ccy: USD, contract_size: 100, spread: 0.35, commission_per_lot: 2.5, swap_mode: markup, triple_swap_day: 2}
+  XAGUSD: {quote_ccy: USD, contract_size: 5000, spread: 0.035, commission_per_lot: 2.5, swap_mode: markup, triple_swap_day: 2}
+  COPPER: {quote_ccy: USD, contract_size: 10000, spread: 0.006, commission_per_lot: 0.0, swap_mode: markup, triple_swap_day: 4}
+  USOIL:  {quote_ccy: USD, contract_size: 100, spread: 0.05, commission_per_lot: 0.0, swap_mode: markup, triple_swap_day: 4}
+  UKOIL:  {quote_ccy: USD, contract_size: 100, spread: 0.06, commission_per_lot: 0.0, swap_mode: markup, triple_swap_day: 4}
+  NATGAS: {quote_ccy: USD, contract_size: 10000, spread: 0.010, commission_per_lot: 0.0, swap_mode: markup, triple_swap_day: 4}

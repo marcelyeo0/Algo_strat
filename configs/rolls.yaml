@@ -8,6 +8,8 @@
 #                        delivery month (contracts from March 2016 onwards); older contracts:
 #                        business day preceding the 15th calendar day before the first day of
 #                        the delivery month.
+#   ng_last_trade      - NYMEX natural gas: trading ends 3 business days before the first
+#                        calendar day of the delivery month.
 #   before_first_notice - COMEX metals: the continuous series is assumed to switch to the next
 #                        active month `offset_bdays` business days before the first notice day
 #                        (= last business day of the month preceding the delivery month).
@@ -37,4 +39,13 @@ contracts:
     rule: before_first_notice
     months: [3, 5, 7, 9, 12]
     offset_bdays: 2
+    neutralise_window_bdays: 0
+  HG:                          # COMEX copper, active months
+    rule: before_first_notice
+    months: [3, 5, 7, 9, 12]
+    offset_bdays: 2
+    neutralise_window_bdays: 0
+  NG:                          # NYMEX Henry Hub natural gas
+    rule: ng_last_trade
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     neutralise_window_bdays: 0

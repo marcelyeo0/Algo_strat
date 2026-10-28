@@ -165,7 +165,7 @@ class Ledger:
         for symbol, pos in self.positions.items():
             if pos.units:
                 bar = bars[symbol]
-                swap = self.costs.swap(symbol, pos.units, bar.close, weekday, bar.fx)
+                swap = self.costs.swap(symbol, pos.units, bar.close, weekday, bar.fx, date)
                 self.balance += swap
                 res.swap += swap
         res.balance = self.balance

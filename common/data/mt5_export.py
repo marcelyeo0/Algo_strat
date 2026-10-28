@@ -36,7 +36,7 @@ def export(out_dir: Path, start: datetime, timeframes: tuple[str, ...] = ("D1", 
         out_dir.mkdir(parents=True, exist_ok=True)
         specs = []
         end = datetime.now(UTC)
-        for symbol, spec in load_universe().items():
+        for symbol, spec in load_universe(include_auxiliary=True).items():
             name = spec.get("mt5")
             info = mt5.symbol_info(name) if name else None
             if info is None:

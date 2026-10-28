@@ -43,7 +43,14 @@ def warn_unverified(name: str | Path) -> int:
     return count
 
 
-def load_universe() -> dict[str, dict[str, Any]]:
-    """Return the instrument universe as ``{symbol: spec}``."""
+def load_universe(include_auxiliary: bool = False) -> dict[str, dict[str, Any]]:
+    """Return the tradable universe as ``{symbol: spec}``.
+
+    Auxiliary series (FX rates only used to convert P&L, such as USDHKD) are added when
+    ``include_auxiliary`` is true; they are never traded.
+    """
     cfg = load_yaml("universe.yaml")
-    return cfg["instruments"]
+    out = dict(cfg["instruments"])
+    if include_auxiliary:
+        out.update(cfg.get("auxiliary", {}))
+    return out

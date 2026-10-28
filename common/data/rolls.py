@@ -53,6 +53,12 @@ def brent_last_trade(year: int, month: int) -> pd.Timestamp:
     return _prev_bday(ref)
 
 
+def ng_last_trade(year: int, month: int) -> pd.Timestamp:
+    """NYMEX natural gas: 3 business days before the first calendar day of the delivery month."""
+    first = pd.Timestamp(year=year, month=month, day=1)
+    return first - 3 * BDAY
+
+
 def first_notice_day(year: int, month: int) -> pd.Timestamp:
     """COMEX first notice day: last business day of the month preceding delivery."""
     py, pm = _shift_month(year, month, -1)
@@ -65,6 +71,8 @@ def last_session_on_old_contract(contract: dict[str, Any], year: int, month: int
         return cl_last_trade(year, month)
     if rule == "brent_last_trade":
         return brent_last_trade(year, month)
+    if rule == "ng_last_trade":
+        return ng_last_trade(year, month)
     if rule == "before_first_notice":
         return first_notice_day(year, month) - int(contract.get("offset_bdays", 0)) * BDAY
     raise ValueError(f"Unknown roll rule: {rule}")

@@ -13,6 +13,7 @@ FX_SOURCES = {
     "JPY": ("USDJPY", False),
     "CAD": ("USDCAD", False),
     "CHF": ("USDCHF", False),
+    "HKD": ("USDHKD", False),     # auxiliary series, not traded
 }
 
 

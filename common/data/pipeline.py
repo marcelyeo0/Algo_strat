@@ -30,7 +30,7 @@ def load_bars(symbol: str) -> pd.DataFrame:
 
 
 def load_panel(symbols: list[str] | None = None) -> dict[str, pd.DataFrame]:
-    symbols = symbols or list(load_universe())
+    symbols = symbols or list(load_universe(include_auxiliary=True))
     return {s: load_bars(s) for s in symbols if bars_path(s).exists()}
 
 
@@ -64,7 +64,7 @@ def run_data_pipeline(
     symbols: str | None = None, source: str = "auto", start: str | None = None, refresh: bool = False
 ) -> dict[str, pd.DataFrame]:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    universe = load_universe()
+    universe = load_universe(include_auxiliary=True)
     cfg = load_yaml("universe.yaml")
     session = cfg["session"]
     start = start or cfg.get("default_start", "2000-01-01")

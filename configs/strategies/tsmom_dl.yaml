@@ -1,6 +1,8 @@
 # Strategy 1: multi-asset time-series momentum with a Deep Momentum Network.
 symbols: [EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, USDCHF, NZDUSD,
-          US500, US100, US30, GER40, UK100, JP225, XAUUSD, XAGUSD, USOIL, UKOIL]
+          EURGBP, EURJPY, GBPJPY, AUDJPY, EURCHF, AUDNZD, CADJPY,
+          US500, US100, US30, US2000, GER40, EU50, FRA40, SPN35, N25, UK100, JP225, AUS200, HK50,
+          XAUUSD, XAGUSD, COPPER, USOIL, UKOIL, NATGAS]
 
 volatility:
   ewm_span: 60                 # ex-ante volatility estimator (EWMA span, sessions)

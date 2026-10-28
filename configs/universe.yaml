@@ -107,3 +107,94 @@ instruments:
     dukascopy: {instrument: BRENTCMDUSD, point: 0.001}
     yfinance: {ticker: "BZ=F", basis: futures, roll_contract: BZ}
     mt5: UKOIL.cash
+
+  # --- Extension validated on 2026-10-28 (each instrument is removed if the MT5 export shows
+  # that FTMO does not offer it). Dukascopy and MT5 names: TODO: vérifier sur le terminal FTMO.
+  EURGBP:
+    asset_class: fx
+    dukascopy: {instrument: EURGBP, point: 0.00001}
+    yfinance: {ticker: "EURGBP=X", basis: spot}
+    mt5: EURGBP
+  EURJPY:
+    asset_class: fx
+    dukascopy: {instrument: EURJPY, point: 0.001}
+    yfinance: {ticker: "EURJPY=X", basis: spot}
+    mt5: EURJPY
+  GBPJPY:
+    asset_class: fx
+    dukascopy: {instrument: GBPJPY, point: 0.001}
+    yfinance: {ticker: "GBPJPY=X", basis: spot}
+    mt5: GBPJPY
+  AUDJPY:
+    asset_class: fx
+    dukascopy: {instrument: AUDJPY, point: 0.001}
+    yfinance: {ticker: "AUDJPY=X", basis: spot}
+    mt5: AUDJPY
+  EURCHF:
+    asset_class: fx
+    dukascopy: {instrument: EURCHF, point: 0.00001}
+    yfinance: {ticker: "EURCHF=X", basis: spot}
+    mt5: EURCHF
+  AUDNZD:
+    asset_class: fx
+    dukascopy: {instrument: AUDNZD, point: 0.00001}
+    yfinance: {ticker: "AUDNZD=X", basis: spot}
+    mt5: AUDNZD
+  CADJPY:
+    asset_class: fx
+    dukascopy: {instrument: CADJPY, point: 0.001}
+    yfinance: {ticker: "CADJPY=X", basis: spot}
+    mt5: CADJPY
+  AUS200:
+    asset_class: index
+    dukascopy: {instrument: AUSIDXAUD, point: 0.001}
+    yfinance: {ticker: "^AXJO", basis: cash_index}
+    mt5: AUS200.cash
+  EU50:
+    asset_class: index
+    dukascopy: {instrument: EUSIDXEUR, point: 0.001}
+    yfinance: {ticker: "^STOXX50E", basis: cash_index}
+    mt5: EU50.cash
+  FRA40:
+    asset_class: index
+    dukascopy: {instrument: FRAIDXEUR, point: 0.001}
+    yfinance: {ticker: "^FCHI", basis: cash_index}
+    mt5: FRA40.cash
+  HK50:
+    asset_class: index
+    dukascopy: {instrument: HKGIDXHKD, point: 0.001}
+    yfinance: {ticker: "^HSI", basis: cash_index}
+    mt5: HK50.cash
+  SPN35:
+    asset_class: index
+    dukascopy: {instrument: ESPIDXEUR, point: 0.001}
+    yfinance: {ticker: "^IBEX", basis: cash_index}
+    mt5: SPN35.cash
+  N25:
+    asset_class: index
+    dukascopy: {instrument: NLDIDXEUR, point: 0.001}
+    yfinance: {ticker: "^AEX", basis: cash_index}
+    mt5: N25.cash
+  US2000:
+    asset_class: index
+    dukascopy: {instrument: USSC2000IDXUSD, point: 0.001}
+    yfinance: {ticker: "^RUT", basis: cash_index}
+    mt5: US2000.cash
+  COPPER:
+    asset_class: metal
+    dukascopy: {instrument: COPPERCMDUSD, point: 0.00001}
+    yfinance: {ticker: "HG=F", basis: futures, roll_contract: HG}
+    mt5: COPPER
+  NATGAS:
+    asset_class: energy
+    dukascopy: {instrument: GASCMDUSD, point: 0.0001}
+    yfinance: {ticker: "NG=F", basis: futures, roll_contract: NG}
+    mt5: NATGAS.cash
+
+# Series downloaded only to convert P&L into USD; never traded.
+auxiliary:
+  USDHKD:
+    asset_class: fx
+    dukascopy: {instrument: USDHKD, point: 0.00001}
+    yfinance: {ticker: "HKD=X", basis: spot}
+    mt5: USDHKD
