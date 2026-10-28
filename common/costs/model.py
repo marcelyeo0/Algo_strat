@@ -94,6 +94,12 @@ class CostModel:
         spec = self.instruments[symbol]
         return abs(units) / spec.contract_size * spec.commission_per_lot * self.multiplier
 
+    def trade_cost_fraction(self, symbol: str, price: float, fx: float = 1.0) -> float:
+        """Cost of trading one unit of notional, as a fraction of notional (half spread + commission)."""
+        spec = self.instruments[symbol]
+        per_unit = 0.5 * self.effective_spread(symbol) * fx + spec.commission_per_lot / spec.contract_size * self.multiplier
+        return per_unit / (price * fx)
+
     # --- overnight financing ----------------------------------------------------------------
 
     def swap_nights(self, symbol: str, weekday: int) -> int:
