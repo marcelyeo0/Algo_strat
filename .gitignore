@@ -1,8 +1,8 @@
 # Data and results (regenerable, potentially large)
-data/
-results/raw/
+/data/
+/results/raw/
 results/*/models/
-mt5_exports/
+/mt5_exports/
 
 # Secrets
 .env
