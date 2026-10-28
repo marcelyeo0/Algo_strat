@@ -27,11 +27,16 @@ Toutes les étapes passent par la CLI `algo` (remplace le Makefile) :
 | Commande | Rôle |
 |---|---|
 | `uv run algo data [--symbols EURUSD,XAUUSD] [--source auto]` | télécharge, nettoie et met en cache les données, écrit le rapport qualité |
+| `uv run algo dukascopy-download [--interval 5]` | téléchargement lent et reprenable des fichiers Dukascopy |
+| `uv run algo data-compare` | compare Dukascopy et yfinance sur la période commune |
 | `uv run algo test` | lance la suite de tests |
 | `uv run algo backtest --strat tsmom_dl` | backtest walk-forward (avec et sans filtre de régime) |
 | `uv run algo tune --strat gold_f2f` | tuning Optuna avec budget d'essais fixe |
 | `uv run algo report --strat tsmom_dl` | rapport HTML/CSV et mise à jour de `results/SUMMARY.md` |
-| `uv run algo holdout --strat gold_f2f --config <yaml> --i-confirm` | évaluation unique sur le holdout verrouillé (2024 →) |
+| `uv run algo holdout --strat gold_f2f --config <yaml> --i-confirm` | évaluation unique sur le holdout verrouillé (2024 →), refusée avec le profil `estimates` |
+| `uv run algo costs compare [--strat ...]` | écart entre coûts estimés et coûts MT5 (quand `configs/costs/mt5.yaml` existe) |
+
+Les commandes `backtest`, `tune` et `holdout` acceptent `--cost-profile estimates|mt5`. Le profil par défaut est défini par la clé `cost_profile` de `configs/settings.yaml`. Avec le profil `estimates`, tous les résultats portent la mention « Résultats provisoires — coûts estimés ».
 
 Stratégies disponibles : `tsmom_dl`, `gold_f2f`.
 

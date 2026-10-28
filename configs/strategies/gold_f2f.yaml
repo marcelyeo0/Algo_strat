@@ -1,0 +1,64 @@
+# Strategy 4: gold trend-momentum, "Forecast-to-Fill" (Singha, Aguilera-Toste & Lahiri, arXiv 2511.08571).
+symbol: XAUUSD
+control_symbol: XAGUSD          # genericity check
+
+signal:
+  ema_lambda: 0.97              # EMA of the log price: y~_t = lambda y~_{t-1} + (1 - lambda) y_t
+  momentum_k: 50                # m_t = 1{P_t / P_{t-K} > 1}
+  omega: 0.6                    # p_bull = omega p_trend + (1 - omega) m_t
+  entry_threshold: 0.52         # long entry if p_bull >= threshold and slope > 0
+  derisk_p_bear: 0.5            # close when p_bear > 0.5
+  derisk_action: close          # close | halve
+
+exits:
+  atr_window: 14
+  hard_stop_atr: 2.0            # entry - 2 ATR
+  trailing_stop_atr: 1.5        # peak - 1.5 ATR
+  timeout_sessions: 30
+
+sizing:
+  target_vol: 0.15              # annualised
+  ewma_span: 20                 # EWMA variance estimator (the paper also mentions theta; 20-day EWMA used)
+  w_max: 2.0
+  kelly_fraction: 0.40
+  linear_cost_bps: 0.7          # k, per round trip (paper cost model)
+  impact_gamma: 0.02            # gamma of the (n f)^{3/2} impact term
+  turnover_n: 1.0
+  tiny_kelly_baseline: 0.25     # weight = 0.25 * w_vol when f* is ~0
+
+# Paper replication: parameters are chosen on each 10-year train window over this grid
+# (4 x 4 x 2 x 2 = 64 combinations, as in the paper), by train Sharpe at T+1, then frozen.
+replication:
+  grid:
+    ema_lambda: [0.90, 0.94, 0.97, 0.99]
+    momentum_k: [20, 50, 100, 200]
+    entry_threshold: [0.52, 0.55]
+    omega: [0.4, 0.6]
+  first_test: "2015-01-01"
+  # Stops before the locked holdout (2024-01-01). The paper runs to 2025-10-31: see docs/GUIDE.md.
+  last_date: "2023-12-31"
+
+walk_forward:
+  train_years: 10
+  test_months: 6
+  expanding: false              # rolling 10-year window; test slices do not overlap
+
+meta_labeling:
+  enabled: true
+  mode: size                    # size: weight x p | filter: trade only if p >= threshold
+  filter_threshold: 0.5
+  profit_take_atr: 2.0          # upper barrier of the triple-barrier labels
+  # lower barrier = hard stop, vertical barrier = timeout (from `exits`)
+
+regime:
+  basket: [XAUUSD]
+  mode: continuous
+
+tuning:
+  n_trials: 200                 # fixed in advance, every trial is logged
+
+# CFD adaptation (prop account): no market impact at retail size, linear cost from the active
+# cost profile (half spread + commission, per side), swaps and leverage from the prop engine.
+cfd:
+  impact_gamma: 0.0
+  dev_first_test: "2010-01-01"   # first test window of the development walk-forward
