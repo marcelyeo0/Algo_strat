@@ -1,0 +1,109 @@
+# CFD universe. Each instrument maps to its symbols in every data source.
+#
+# yfinance.basis:
+#   spot        - spot FX rate (no roll)
+#   cash_index  - cash index level, closest to an index cash CFD (no roll)
+#   futures     - front-month continuous future; roll days are neutralised using the
+#                 expiry calendar of `roll_contract` (see configs/rolls.yaml)
+# dukascopy.point: price increment used to decode the integer prices of .bi5 files.
+#   TODO: vérifier les incréments Dukascopy pour les indices et matières premières.
+# mt5: symbol name on the FTMO server.  TODO: vérifier sur le terminal FTMO.
+
+session:
+  # Daily bars close at 00:00 FTMO server time (GMT+2 / GMT+3 with US DST),
+  # i.e. 17:00 America/New_York all year round.
+  close_tz: America/New_York
+  close_hour: 17
+  # The FTMO daily-loss reset happens at midnight Europe/Prague, about one hour
+  # before the server close (see docs/GUIDE.md, section "Hypothèses").
+  daily_loss_reset_tz: Europe/Prague
+  daily_loss_reset_hour: 0
+
+default_start: "2000-01-01"
+
+instruments:
+  EURUSD:
+    asset_class: fx
+    dukascopy: {instrument: EURUSD, point: 0.00001}
+    yfinance: {ticker: "EURUSD=X", basis: spot}
+    mt5: EURUSD
+  GBPUSD:
+    asset_class: fx
+    dukascopy: {instrument: GBPUSD, point: 0.00001}
+    yfinance: {ticker: "GBPUSD=X", basis: spot}
+    mt5: GBPUSD
+  USDJPY:
+    asset_class: fx
+    dukascopy: {instrument: USDJPY, point: 0.001}
+    yfinance: {ticker: "JPY=X", basis: spot}
+    mt5: USDJPY
+  AUDUSD:
+    asset_class: fx
+    dukascopy: {instrument: AUDUSD, point: 0.00001}
+    yfinance: {ticker: "AUDUSD=X", basis: spot}
+    mt5: AUDUSD
+  USDCAD:
+    asset_class: fx
+    dukascopy: {instrument: USDCAD, point: 0.00001}
+    yfinance: {ticker: "CAD=X", basis: spot}
+    mt5: USDCAD
+  USDCHF:
+    asset_class: fx
+    dukascopy: {instrument: USDCHF, point: 0.00001}
+    yfinance: {ticker: "CHF=X", basis: spot}
+    mt5: USDCHF
+  NZDUSD:
+    asset_class: fx
+    dukascopy: {instrument: NZDUSD, point: 0.00001}
+    yfinance: {ticker: "NZDUSD=X", basis: spot}
+    mt5: NZDUSD
+  US500:
+    asset_class: index
+    dukascopy: {instrument: USA500IDXUSD, point: 0.001}
+    yfinance: {ticker: "^GSPC", basis: cash_index}
+    mt5: US500.cash
+  US100:
+    asset_class: index
+    dukascopy: {instrument: USATECHIDXUSD, point: 0.001}
+    yfinance: {ticker: "^NDX", basis: cash_index}
+    mt5: US100.cash
+  US30:
+    asset_class: index
+    dukascopy: {instrument: USA30IDXUSD, point: 0.001}
+    yfinance: {ticker: "^DJI", basis: cash_index}
+    mt5: US30.cash
+  GER40:
+    asset_class: index
+    dukascopy: {instrument: DEUIDXEUR, point: 0.001}
+    yfinance: {ticker: "^GDAXI", basis: cash_index}
+    mt5: GER40.cash
+  UK100:
+    asset_class: index
+    dukascopy: {instrument: GBRIDXGBP, point: 0.001}
+    yfinance: {ticker: "^FTSE", basis: cash_index}
+    mt5: UK100.cash
+  JP225:
+    asset_class: index
+    dukascopy: {instrument: JPNIDXJPY, point: 0.001}
+    yfinance: {ticker: "^N225", basis: cash_index}
+    mt5: JP225.cash
+  XAUUSD:
+    asset_class: metal
+    dukascopy: {instrument: XAUUSD, point: 0.001}
+    yfinance: {ticker: "GC=F", basis: futures, roll_contract: GC}
+    mt5: XAUUSD
+  XAGUSD:
+    asset_class: metal
+    dukascopy: {instrument: XAGUSD, point: 0.001}
+    yfinance: {ticker: "SI=F", basis: futures, roll_contract: SI}
+    mt5: XAGUSD
+  USOIL:
+    asset_class: energy
+    dukascopy: {instrument: LIGHTCMDUSD, point: 0.001}
+    yfinance: {ticker: "CL=F", basis: futures, roll_contract: CL}
+    mt5: USOIL.cash
+  UKOIL:
+    asset_class: energy
+    dukascopy: {instrument: BRENTCMDUSD, point: 0.001}
+    yfinance: {ticker: "BZ=F", basis: futures, roll_contract: BZ}
+    mt5: UKOIL.cash

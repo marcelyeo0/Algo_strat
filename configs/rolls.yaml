@@ -1,0 +1,40 @@
+# Expiry calendar rules used to locate roll days of continuous futures (yfinance "=F").
+#
+# rule:
+#   cl_last_trade      - NYMEX WTI: trading ends 3 business days before the 25th calendar
+#                        day of the month preceding the delivery month (if the 25th is not a
+#                        business day, 3 business days before the last business day preceding it).
+#   brent_last_trade   - ICE Brent: last business day of the second month preceding the
+#                        delivery month (contracts from March 2016 onwards); older contracts:
+#                        business day preceding the 15th calendar day before the first day of
+#                        the delivery month.
+#   before_first_notice - COMEX metals: the continuous series is assumed to switch to the next
+#                        active month `offset_bdays` business days before the first notice day
+#                        (= last business day of the month preceding the delivery month).
+# months: delivery months of the contracts the continuous series follows (1-12).
+# neutralise_window_bdays: number of extra sessions after the roll session whose returns are
+#   also neutralised (0 = only the first session on the new contract).
+#
+# Business days use the US federal holiday calendar as a proxy for the exchange calendar.
+# TODO: vérifier le moment exact où Yahoo bascule de contrat (le rapport qualité signale les
+# sauts > k sigma proches des dates calculées pour permettre ce contrôle).
+
+contracts:
+  CL:
+    rule: cl_last_trade
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    neutralise_window_bdays: 0
+  BZ:
+    rule: brent_last_trade
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    neutralise_window_bdays: 0
+  GC:
+    rule: before_first_notice
+    months: [2, 4, 6, 8, 10, 12]
+    offset_bdays: 2
+    neutralise_window_bdays: 0
+  SI:
+    rule: before_first_notice
+    months: [3, 5, 7, 9, 12]
+    offset_bdays: 2
+    neutralise_window_bdays: 0
